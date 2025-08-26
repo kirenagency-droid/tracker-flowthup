@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tracker flowthup</title>
+  <style>
+    :root{
+      --bg:#f9fbff; --panel:#ffffff; --muted:#64748b; --line:#e2e8f0;
+      --accent:#2563eb; --accent2:#1d4ed8; --danger:#dc2626; --success:#16a34a;
+      --shadow:0 8px 24px rgba(2,6,23,.06); --radius:16px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:'Poppins',system-ui,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(180deg,#f9fbff,#f0f7ff);color:#0f172a}
+    .container{max-width:1200px;margin:0 auto;padding:24px}
+    header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+    header .inner{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:64px;padding:10px 24px}
+    .brand{font-weight:800;font-size:20px;color:var(--accent2)}
+    .muted{color:var(--muted)}
+    .grid{display:grid;gap:16px}
+    .grid.cols-4{grid-template-columns:repeat(4,1fr)}
+    @media (max-width:900px){.grid.cols-4{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:640px){.grid.cols-4{grid-template-columns:1fr}}
+    .card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .card.pad{padding:16px}
+    .card h3{margin:0 0 8px;font-size:14px;color:#1e3a8a;font-weight:700}
+    .stat{font-size:28px;font-weight:800;color:#0b2a6b}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    label{font-size:12px;color:#1e40af;font-weight:600}
+    input,select{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:#fff;transition:.15s}
+    input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(37,99,235,.15);outline:none}
+    input[type="date"]{min-height:42px}
+    .btn{padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:#eef4ff;color:#0b2a6b;font-weight:600;cursor:pointer;transition:.2s}
+    .btn:hover{background:#e0ebff}
+    .btn.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);border:none;color:#fff;box-shadow:0 6px 14px rgba(37,99,235,.25)}
+    .btn.primary:hover{background:linear-gradient(180deg,#2563eb,#1d4ed8)}
+    .btn.danger{background:#fee2e2;color:#991b1b;border-color:#fecaca;box-shadow:0 6px 14px rgba(220,38,38,.12)}
+    .btn.danger:hover{background:#fecaca}
+    .btn.sm{padding:6px 10px;border-radius:10px;font-size:12px}
+    table{width:100%;border-collapse:collapse;font-size:14px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+    thead th{background:#f0f7ff;padding:12px;color:#1e3a8a;text-align:left;font-weight:700}
+    tbody td{padding:12px;border-bottom:1px solid var(--line)}
+    tbody tr:nth-child(even){background:#f9fbff}
+    tbody tr:hover{background:#eef4ff}
+    .charts{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    @media (max-width:900px){.charts{grid-template-columns:1fr}}
+    .chart{height:280px}
+    .legend{font-size:12px;color:#1e40af;display:flex;gap:12px;margin-top:6px}
+    .dot{width:10px;height:10px;border-radius:50%}
+    .dot.calls{background:#3b82f6}.dot.revenue{background:#22c55e}
+    .badge{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);background:#eef2ff;color:#1e3a8a}
+    .progress{width:100%;height:12px;border-radius:999px;background:#eef4ff;border:1px solid var(--line);overflow:hidden}
+    .bar{height:100%;width:0;background:linear-gradient(90deg,#93c5fd,#2563eb);transition:width .4s}
+    .progress-label{font-size:12px;color:#1e3a8a;margin:6px 0 2px}
+    .top-actions{display:flex;justify-content:flex-end;margin-top:-8px}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="inner">
+      <div class="brand">Tracker flowthup</div>
+      <div class="muted">Saisies · Analytics · Objectifs</div>
+      <button class="btn danger" id="btn-reset-top" style="margin-left:auto">Supprimer toutes les données</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- KPIs + reset top -->
+    <section class="grid cols-4">
+      <div class="card pad"><h3>Appels</h3><div class="stat" id="kpi-total">0</div></div>
+      <div class="card pad"><h3>Closing</h3><div class="stat" id="kpi-closing">0%</div></div>
+      <div class="card pad"><h3>CA</h3><div class="stat" id="kpi-revenue">0 €</div></div>
+      <div class="card pad"><h3>Gagnés</h3><div class="stat" id="kpi-wins">0</div></div>
+    </section>
+    <div class="top-actions">
+      <button class="btn danger sm" id="btn-reset-top">Réinitialiser les données</button>
+    </div>
+
+    <!-- Filtres -->
+    <section class="card pad" style="margin-top:16px">
+      <div class="row" style="align-items:flex-end">
+        <div class="field"><label for="filter-from">Du</label><input type="date" id="filter-from"></div>
+        <div class="field"><label for="filter-to">Au</label><input type="date" id="filter-to"></div>
+        <div class="row">
+          <button class="btn" id="btn-today">Aujourd’hui</button>
+          <button class="btn" id="btn-week">Cette semaine</button>
+          <button class="btn" id="btn-month">Ce mois</button>
+          <button class="btn" id="btn-year">Cette année</button>
+        </div>
+        <button class="btn primary" id="btn-apply">Appliquer</button>
+        <button class="btn" id="btn-clear">Réinitialiser</button>
+        <span class="badge" id="active-range" style="display:none"></span>
+      </div>
+    </section>
+
+    <!-- Formulaire -->
+    <section class="card pad" style="margin-top:16px">
+      <form id="record-form" class="grid cols-4">
+        <div class="field"><label>Date</label><input type="date" name="date" required></div>
+        <div class="field"><label>Statut</label>
+          <select name="status">
+            <option value="WON">Gagné</option>
+            <option value="LOST">Perdu</option>
+            <option value="NOSHOW">No show</option>
+            <option value="PENDING">En attente</option>
+          </select>
+        </div>
+        <div class="field"><label>Montant (€)</label><input type="number" name="amount" step="0.01" placeholder="0.00"></div>
+        <div class="field" style="grid-column:span 4"><button class="btn primary" type="submit">Enregistrer</button></div>
+      </form>
+    </section>
+
+    <!-- Charts mensuels -->
+    <section class="charts" style="margin-top:16px">
+      <div class="card pad chart">
+        <h3>Appels par mois (12 derniers)</h3>
+        <div id="chart-month-calls"></div>
+      </div>
+      <div class="card pad chart">
+        <h3>CA (€) par mois (12 derniers)</h3>
+        <div id="chart-month-revenue"></div>
+      </div>
+    </section>
+    <!-- Nouveaux graphiques : journalier et mensuel -->
+    <section class="charts" style="margin-top:16px">
+      <div class="card pad chart">
+        <h3>Appels par jour (30 derniers)</h3>
+        <div id="chart-day-calls"></div>
+      </div>
+      <div class="card pad chart">
+        <h3>CA (€) par jour (30 derniers)</h3>
+        <div id="chart-day-revenue"></div>
+      </div>
+    </section>
+    <!-- Répartition par statut -->
+    <section class="charts" style="margin-top:16px">
+      <div class="card pad chart" style="grid-column:1 / -1">
+        <h3>Répartition par statut</h3>
+        <div id="chart-status"></div>
+      </div>
+    </section>
+
+    <!-- Tableau -->
+    <section class="card pad" style="margin-top:16px">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h3>Historique des calls</h3>
+        <div class="row" style="gap:8px;align-items:center">
+          <div class="badge" id="chips">Période : tout</div>
+          <button class="btn danger sm" id="btn-reset">Tout supprimer</button>
+        </div>
+      </div>
+      <div style="overflow:auto;margin-top:8px">
+        <table id="table">
+          <thead>
+            <tr><th>Date</th><th>Statut</th><th>Montant</th><th>Action</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Objectifs -->
+    <section class="card pad" style="margin-top:16px">
+      <h3>Objectifs</h3>
+      <div class="row">
+        <div class="field" style="min-width:160px"><label>Appels (mois)</label><input type="number" id="goal-calls-month" min="0" step="1" placeholder="ex: 40"></div>
+        <div class="field" style="min-width:200px"><label>CA (mois) €</label><input type="number" id="goal-revenue-month" min="0" step="100" placeholder="ex: 10000"></div>
+        <div class="field" style="min-width:160px"><label>Appels (année)</label><input type="number" id="goal-calls-year" min="0" step="1" placeholder="ex: 400"></div>
+        <div class="field" style="min-width:200px"><label>CA (année) €</label><input type="number" id="goal-revenue-year" min="0" step="100" placeholder="ex: 120000"></div>
+        <button class="btn primary" id="btn-save-goals">Enregistrer les objectifs</button>
+      </div>
+
+      <div style="margin-top:16px">
+        <div class="progress-label" id="label-month">Progression mois courant</div>
+        <div class="progress" title="Progression moyenne (Appels + CA)">
+          <div class="bar" id="bar-month"></div>
+        </div>
+      </div>
+      <div style="margin-top:16px">
+        <div class="progress-label" id="label-year">Progression année courante</div>
+        <div class="progress" title="Progression moyenne (Appels + CA)">
+          <div class="bar" id="bar-year"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+<script>
+/* ---------- Storage ---------- */
+
+// --- Gestion multi-utilisateur locale ---
+function getUserId() {
+  let id = localStorage.getItem('flowthup.userId');
+  if (!id) {
+    id = prompt('Entrez votre nom ou identifiant (vos données seront séparées) :');
+    if (!id) id = 'user-' + Math.random().toString(16).slice(2);
+    localStorage.setItem('flowthup.userId', id);
+  }
+  return id;
+}
+const USER_ID = getUserId();
+const LS_KEY = 'flowthup.records.v2.' + USER_ID;
+const GOAL_KEY = 'flowthup.goals.v1.' + USER_ID;
+function load(){ try{ return JSON.parse(localStorage.getItem(LS_KEY))||[] }catch{return []} }
+function save(arr){ localStorage.setItem(LS_KEY, JSON.stringify(arr)) }
+function loadGoals(){ try{ return JSON.parse(localStorage.getItem(GOAL_KEY))||{mCalls:0,mRevenue:0,yCalls:0,yRevenue:0} }catch{return {mCalls:0,mRevenue:0,yCalls:0,yRevenue:0}} }
+function saveGoals(g){ localStorage.setItem(GOAL_KEY, JSON.stringify(g)) }
+
+/* ---------- State ---------- */
+let ALL = load();
+let FILTER = {from:null, to:null};
+
+/* ---------- Helpers ---------- */
+const ISO = d=> new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+const parseDateInput = v => new Date(v + 'T12:00:00');
+const fmtDate = d => new Date(d).toLocaleDateString('fr-FR');
+const fmtEuro = n => (Number(n)||0).toLocaleString('fr-FR',{style:'currency',currency:'EUR'});
+function uid(){ return (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'id-'+Math.random().toString(16).slice(2)+'-'+Date.now().toString(16); }
+
+/* ---------- Normalize (ensure ids) ---------- */
+let changed=false;
+ALL = ALL.map(r=>{ if(!r.id){ r.id=uid(); changed=true; } return r; });
+if(changed) save(ALL);
+
+/* ---------- Filtering ---------- */
+function setRangeBadge(){
+  const badge = document.getElementById('active-range');
+  if(FILTER.from || FILTER.to){
+    const fromTxt = FILTER.from ? fmtDate(FILTER.from) : '…';
+    const toTxt = FILTER.to ? fmtDate(FILTER.to) : '…';
+    badge.textContent = `Période active : ${fromTxt} → ${toTxt}`;
+    badge.style.display = 'inline-block';
+    document.getElementById('chips').textContent = `Période : ${fromTxt} → ${toTxt}`;
+  } else {
+    badge.style.display = 'none';
+    document.getElementById('chips').textContent = 'Période : tout';
+  }
+}
+function inRange(d){
+  const t = new Date(d).setHours(0,0,0,0);
+  if(FILTER.from && t < FILTER.from.getTime()) return false;
+  if(FILTER.to && t > FILTER.to.getTime()) return false;
+  return true;
+}
+function filtered(){ return ALL.filter(r => inRange(r.date)) }
+
+/* ---------- Metrics ---------- */
+function computeMetrics(list){
+  const total = list.length;
+  const wins = list.filter(r=>r.status==='WON');
+  const revenue = wins.reduce((s,r)=> s+(+r.amount||0), 0);
+  const closing = total ? Math.round((wins.length/total)*100) : 0;
+  return {total, closing, revenue, wins: wins.length};
+}
+
+/* ---------- Month Aggregations (last 12 months) ---------- */
+function monthKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` }
+function last12Months(){
+  const arr=[]; const now=new Date(); now.setDate(1);
+  for(let i=11;i>=0;i--){ const d = new Date(now.getFullYear(), now.getMonth()-i, 1); arr.push({key:monthKey(d), label:d.toLocaleString('fr-FR',{month:'short'}), y:d.getFullYear(), m:d.getMonth()}); }
+  return arr;
+}
+function aggregateMonthly(list){
+  const base = Object.fromEntries(last12Months().map(x=>[x.key,{calls:0,revenue:0,label:x.label}]));
+  for(const r of list){
+    const d = new Date(r.date);
+    const key = monthKey(d);
+    if(base[key]){
+      base[key].calls += 1;
+      if(r.status==='WON') base[key].revenue += (+r.amount||0);
+    }
+  }
+  const keys = Object.keys(base);
+  return keys.map(k=>({label:base[k].label, calls:base[k].calls, revenue:base[k].revenue}));
+}
+
+/* ---------- Day Aggregations (last 30 days) ---------- */
+function lastNDays(n) {
+  const arr = [];
+  const now = new Date();
+  for(let i=n-1;i>=0;i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate()-i);
+    arr.push({
+      key: d.toISOString().slice(0,10),
+      label: d.toLocaleDateString('fr-FR', { day:'2-digit', month:'short' }),
+      y: d.getFullYear(),
+      m: d.getMonth(),
+      d: d.getDate()
+    });
+  }
+  return arr;
+}
+function aggregateDaily(list, n=30) {
+  const base = Object.fromEntries(lastNDays(n).map(x=>[x.key,{calls:0,revenue:0,label:x.label}]));
+  for(const r of list) {
+    const d = new Date(r.date);
+    const key = d.toISOString().slice(0,10);
+    if(base[key]) {
+      base[key].calls += 1;
+      if(r.status==='WON') base[key].revenue += (+r.amount||0);
+    }
+  }
+  const keys = Object.keys(base);
+  return keys.map(k=>({label:base[k].label, calls:base[k].calls, revenue:base[k].revenue}));
+}
+
+/* ---------- Charts (SVG) ---------- */
+function lineChart(el, xs, ys, color){
+  const W = el.clientWidth || 560, H = 240, P = 32;
+  const maxY = Math.max(1, ...ys);
+  const stepX = (W - P*2) / Math.max(1, xs.length-1);
+  const scaleY = v => H - P - ((v/maxY)*(H-P*2));
+  let path=''; ys.forEach((v,i)=>{ const x=P+i*stepX, y=scaleY(v); path += (i?' L':'M')+x+' '+y; });
+  let grid=''; for(let i=0;i<=4;i++){ const y=P+i*(H-P*2)/4; grid += `<line x1="${P}" y1="${y}" x2="${W-P}" y2="${y}" stroke="#e2e8f0"/>`; }
+  let labels=''; xs.forEach((lbl,i)=>{ const x=P+i*stepX, y=H-P+16; const show=xs.length<=12 || i%Math.ceil(xs.length/12)===0; if(show) labels+=`<text x="${x}" y="${y}" font-size="10" text-anchor="middle" fill="#334155">${lbl}</text>`; });
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${grid}<path d="${path}" fill="none" stroke="${color}" stroke-width="2.4"/>${ys.map((v,i)=>{const x=P+i*stepX,y=scaleY(v);return `<circle cx="${x}" cy="${y}" r="3" fill="${color}"/>`}).join('')}${labels}</svg>`;
+}
+function barChart(el, xs, ys, color){
+  const W = el.clientWidth || 560, H = 240, P = 32;
+  const maxY = Math.max(1, ...ys);
+  const bw = (W - P*2) / ys.length * 0.7, gap = (W - P*2) / ys.length * 0.3;
+  const scaleY = v => H - P - ((v/maxY)*(H-P*2));
+  let grid=''; for(let i=0;i<=4;i++){ const y=P+i*(H-P*2)/4; grid += `<line x1="${P}" y1="${y}" x2="${W-P}" y2="${y}" stroke="#e2e8f0"/>`; }
+  let bars=''; ys.forEach((v,i)=>{ const x = P + i*(bw+gap); const y = scaleY(v); const h = H-P-y; bars += `<rect x="${x}" y="${y}" width="${bw}" height="${h}" fill="${color}" rx="6" />`; });
+  let labels=''; xs.forEach((lbl,i)=>{ const x = P + i*(bw+gap) + bw/2; const y = H-P+14; const show=xs.length<=12 || i%Math.ceil(xs.length/12)===0; if(show) labels+=`<text x="${x}" y="${y}" font-size="10" text-anchor="middle" fill="#334155">${lbl}</text>`; });
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${grid}${bars}${labels}</svg>`;
+}
+function aggregateStatus(list) {
+  const statusList = ['WON','LOST','FOLLOWUP','NOSHOW','PENDING'];
+  const base = Object.fromEntries(statusList.map(s=>[s,0]));
+  for(const r of list) {
+    if(base[r.status] !== undefined) base[r.status] += 1;
+  }
+  return statusList.map(s=>({label:s, value:base[s]}));
+}
+function barChartStatus(el, labels, values) {
+  const W = el.clientWidth || 560, H = 240, P = 32;
+  const maxY = Math.max(1, ...values);
+  const bw = (W - P*2) / values.length * 0.7, gap = (W - P*2) / values.length * 0.3;
+  const scaleY = v => H - P - ((v/maxY)*(H-P*2));
+  let grid=''; for(let i=0;i<=4;i++){ const y=P+i*(H-P*2)/4; grid += `<line x1="${P}" y1="${y}" x2="${W-P}" y2="${y}" stroke="#e2e8f0"/>`; }
+  let bars=''; values.forEach((v,i)=>{ const x = P + i*(bw+gap); const y = scaleY(v); const h = H-P-y; bars += `<rect x="${x}" y="${y}" width="${bw}" height="${h}" fill="#3b82f6" rx="6" />`; });
+  let labelsSvg=''; labels.forEach((lbl,i)=>{ const x = P + i*(bw+gap) + bw/2; const y = H-P+14; labelsSvg+=`<text x="${x}" y="${y}" font-size="12" text-anchor="middle" fill="#b6c5ea">${lbl}</text>`; });
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${grid}${bars}${labelsSvg}</svg>`;
+}
+
+/* ---------- Render ---------- */
+function render(){
+  const list = filtered();
+  const m = computeMetrics(list);
+  document.getElementById('kpi-total').textContent = m.total;
+  document.getElementById('kpi-closing').textContent = m.closing + '%';
+  document.getElementById('kpi-revenue').textContent = fmtEuro(m.revenue);
+  document.getElementById('kpi-wins').textContent = m.wins;
+
+  // Table
+  const tbody = document.querySelector('#table tbody');
+  tbody.innerHTML = '';
+  const sorted = [...list].sort((a,b)=> new Date(b.date) - new Date(a.date));
+  for(const r of sorted){
+    tbody.insertAdjacentHTML('beforeend',
+      `<tr>
+        <td>${fmtDate(r.date)}</td>
+        <td>${r.status}</td>
+        <td>${fmtEuro(r.status==='WON'? (r.amount||0) : 0)}</td>
+        <td><button class="btn danger sm" data-del="${r.id}">Supprimer</button></td>
+      </tr>`
+    );
+  }
+
+  // Charts monthly (last 12 months) : tendance globale sur ALL
+  const monthly = aggregateMonthly(ALL);
+  const xs = monthly.map(x=>x.label);
+  lineChart(document.getElementById('chart-month-calls'), xs, monthly.map(x=>x.calls), '#3b82f6');
+  barChart(document.getElementById('chart-month-revenue'), xs, monthly.map(x=>x.revenue), '#22c55e');
+
+  // Charts daily (last 30 days)
+  const daily = aggregateDaily(ALL, 30);
+  const xsd = daily.map(x=>x.label);
+  lineChart(document.getElementById('chart-day-calls'), xsd, daily.map(x=>x.calls), '#3b82f6');
+  barChart(document.getElementById('chart-day-revenue'), xsd, daily.map(x=>x.revenue), '#22c55e');
+
+  // Répartition par statut
+  const statusAgg = aggregateStatus(ALL);
+  barChartStatus(document.getElementById('chart-status'), statusAgg.map(x=>x.label), statusAgg.map(x=>x.value));
+
+  // Goals bars -> maintenant basées sur la même période FILTRÉE pour coller aux chiffres affichés
+  renderGoalsBars(list);
+  setRangeBadge();
+}
+
+/* ---------- Goals (alignées sur les chiffres affichés) ---------- */
+function metricsForMonthFrom(list, date){
+  const m = date.getMonth(), y = date.getFullYear();
+  const withinMonth = list.filter(r => {
+    const d = new Date(r.date);
+    return d.getMonth()===m && d.getFullYear()===y;
+  });
+  const calls = withinMonth.length;
+  const revenue = withinMonth.filter(r=>r.status==='WON').reduce((s,r)=>s+(+r.amount||0),0);
+  return {calls,revenue};
+}
+function metricsForYearFrom(list, date){
+  const y = date.getFullYear();
+  const withinYear = list.filter(r => new Date(r.date).getFullYear()===y);
+  const calls = withinYear.length;
+  const revenue = withinYear.filter(r=>r.status==='WON').reduce((s,r)=>s+(+r.amount||0),0);
+  return {calls,revenue};
+}
+function clamp01(x){ return Math.max(0, Math.min(100, x)); }
+
+/* list = jeux de données courants (filtrés). Si aucun filtre actif, ça revient au mois/année courants */
+function renderGoalsBars(currentList){
+  const g = loadGoals();
+  const now = new Date();
+
+  // Calculs sur la période courante
+  const monthMetrics = metricsForMonthFrom(currentList, now);
+  const yearMetrics  = metricsForYearFrom(currentList, now);
+
+  // Progression CA et Appels (en %)
+  const pc = g.mCalls>0 ? (monthMetrics.calls/g.mCalls*100) : 0;
+  const pr = g.mRevenue>0 ? (monthMetrics.revenue/g.mRevenue*100) : 0;
+  const yc = g.yCalls>0 ? (yearMetrics.calls/g.yCalls*100) : 0;
+  const yr = g.yRevenue>0 ? (yearMetrics.revenue/g.yRevenue*100) : 0;
+
+  // Correction : on prend le maximum des deux (CA ou Appels) pour la barre, pas la moyenne
+  const monthProgress = clamp01(Math.round(Math.max(pc, pr)));
+  const yearProgress  = clamp01(Math.round(Math.max(yc, yr)));
+
+  document.getElementById('bar-month').style.width = monthProgress + '%';
+  document.getElementById('bar-year').style.width  = yearProgress + '%';
+
+  document.getElementById('label-month').textContent = `Progression mois courant – ${monthProgress}%`;
+  document.getElementById('label-year').textContent  = `Progression année courante – ${yearProgress}%`;
+
+  // Remplir inputs (conserve les objectifs saisis)
+  document.getElementById('goal-calls-month').value = g.mCalls || 0;
+  document.getElementById('goal-revenue-month').value = g.mRevenue || 0;
+  document.getElementById('goal-calls-year').value = g.yCalls || 0;
+  document.getElementById('goal-revenue-year').value = g.yRevenue || 0;
+}
+
+/* ---------- Events ---------- */
+// Enregistrement d'un call
+document.getElementById('record-form').addEventListener('submit',(e)=>{
+  e.preventDefault();
+  const fd = new FormData(e.currentTarget);
+  const dateStr = fd.get('date');
+  if(!dateStr) return alert('Date requise');
+  const status = fd.get('status');
+  let amount = parseFloat((fd.get('amount')||'').replace(',','.'));
+  amount = isNaN(amount) ? 0 : amount;
+  const obj = {
+    id: uid(),
+    date: parseDateInput(dateStr),
+    status,
+    amount: status==='WON' ? amount : 0,
+  };
+  ALL.push(obj);
+  save(ALL);
+  e.currentTarget.reset();
+  render(); // -> recalc KPIs, charts et barres
+});
+
+// Suppression individuelle
+document.querySelector('#table tbody').addEventListener('click',(e)=>{
+  const btn = e.target.closest('button[data-del]');
+  if(!btn) return;
+  const id = btn.getAttribute('data-del');
+  if(confirm('Supprimer cet appel ?')){
+    ALL = ALL.filter(r=> r.id !== id);
+    save(ALL);
+    render(); // -> recalc complet (KPIs, charts, barres d’objectifs)
+  }
+});
+
+// Filtres rapides
+function setFilterRange(start,end){
+  const fromInput = document.getElementById('filter-from');
+  const toInput = document.getElementById('filter-to');
+  fromInput.value = ISO(start); toInput.value = ISO(end);
+  FILTER.from = start; FILTER.to = end;
+  render();
+}
+document.getElementById('btn-today').addEventListener('click', ()=>{
+  const d = new Date(); d.setHours(0,0,0,0);
+  const e = new Date(d); e.setHours(23,59,59,999);
+  setFilterRange(d,e);
+});
+document.getElementById('btn-week').addEventListener('click', ()=>{
+  const now=new Date(); const day=(now.getDay()+6)%7;
+  const start=new Date(now); start.setDate(now.getDate()-day); start.setHours(0,0,0,0);
+  const end=new Date(start); end.setDate(start.getDate()+6); end.setHours(23,59,59,999);
+  setFilterRange(start,end);
+});
+document.getElementById('btn-month').addEventListener('click', ()=>{
+  const now=new Date();
+  const start=new Date(now.getFullYear(), now.getMonth(), 1);
+  const end=new Date(now.getFullYear(), now.getMonth()+1, 0, 23,59,59,999);
+  setFilterRange(start,end);
+});
+document.getElementById('btn-year').addEventListener('click', ()=>{
+  const now=new Date();
+  const start=new Date(now.getFullYear(), 0, 1);
+  const end=new Date(now.getFullYear(), 11, 31, 23,59,59,999);
+  setFilterRange(start,end);
+});
+
+// Appliquer / Réinitialiser la période
+document.getElementById('btn-apply').addEventListener('click', ()=>{
+  const fv = document.getElementById('filter-from').value;
+  const tv = document.getElementById('filter-to').value;
+  FILTER.from = fv ? parseDateInput(fv) : null;
+  FILTER.to = tv ? parseDateInput(tv) : null;
+  render();
+});
+document.getElementById('btn-clear').addEventListener('click', ()=>{
+  document.getElementById('filter-from').value='';
+  document.getElementById('filter-to').value='';
+  FILTER.from = FILTER.to = null;
+  render();
+});
+
+// Reset total (table) et bouton top
+function hardReset(){
+  if(!confirm('Tout supprimer et repartir de zéro ?')) return;
+  ALL = [];
+  save(ALL);
+  document.getElementById('filter-from').value='';
+  document.getElementById('filter-to').value='';
+  FILTER.from = FILTER.to = null;
+  render();
+}
+document.getElementById('btn-reset').addEventListener('click', hardReset);
+document.getElementById('btn-reset-top').addEventListener('click', hardReset);
+
+// Sauvegarde objectifs
+document.getElementById('btn-save-goals').addEventListener('click', ()=>{
+  const mCalls = +document.getElementById('goal-calls-month').value || 0;
+  const mRevenue = +document.getElementById('goal-revenue-month').value || 0;
+  const yCalls = +document.getElementById('goal-calls-year').value || 0;
+  const yRevenue = +document.getElementById('goal-revenue-year').value || 0;
+  saveGoals({mCalls,mRevenue,yCalls,yRevenue});
+  render(); // pour recalculer les barres avec la nouvelle cible
+  alert('Objectifs enregistrés ✅');
+});
+
+/* ---------- Initial Render ---------- */
+render();
+
+// Ajout du bouton reset tout en haut
+window.addEventListener('DOMContentLoaded', function() {
+  var btnTop = document.getElementById('btn-reset-top');
+  if(btnTop) {
+    btnTop.addEventListener('click', function() {
+      if(confirm('Supprimer TOUTES les données ? Cette action est définitive.')){
+        ALL = [];
+        persist(ALL);
+        render();
+        if(typeof resetForm === 'function') resetForm();
+      }
+    });
+  }
+});
+</script>
+</body>
+</html>
